@@ -16,6 +16,12 @@ def eula_nested_modal_dialog(next_modal):
     """Shows the EULA HTML Element"""
     return {'next_modal' : next_modal}
 
+@register.inclusion_tag('eula_nested_anonymous.html')
+def eula_nested_modal_anonymous(next_modal):
+    """Shows the EULA HTML Element"""
+    return {'next_modal' : next_modal}
+
 register.filter('show_eula', show_eula)
 register.filter('eula_modal_dialog', eula_modal_dialog)
 register.filter('eula_nested_modal_dialog', eula_nested_modal_dialog)
+register.filter('eula_nested_modal_anonymous', eula_nested_modal_anonymous)
