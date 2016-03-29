@@ -49,42 +49,42 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{% url "home" %}">LiDAR Portal for Archiving and Distribution<small>Phil LiDAR 1: Hazard Mapping of the Philippines Using LiDAR</small></a>
+          <a class="navbar-brand" href="https://lipad.dream.upd.edu.ph{% url "home" %}">LiDAR Portal for Archiving and Distribution<small>Phil LiDAR 1: Hazard Mapping of the Philippines Using LiDAR</small></a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
             {% block tabs %}
                   <li id="nav_datastore" class="dropdown">
-                      <a tabindex="0" href="/maptiles/" class="dropdown-toggle js-activated" data-toggle="dropdown" data-submenu>Data Store <span class="caret"></span></a>
+                      <a tabindex="0" href="https://lipad.dream.upd.edu.ph/maptiles/" class="dropdown-toggle js-activated" data-toggle="dropdown" data-submenu>Data Store <span class="caret"></span></a>
                       <ul class="dropdown-menu">
-                        <li><a href="/maptiles/">Data Tiles</a></li>
-                        <li class="dropdown-submenu"><a tabindex="0" href="/layers/">Layers</a>
+                        <li><a href="https://lipad.dream.upd.edu.ph/maptiles/">Data Tiles</a></li>
+                        <li class="dropdown-submenu"><a tabindex="0" href="https://lipad.dream.upd.edu.ph/layers/">Layers</a>
                           <ul class="dropdown-menu">
                             <li><a tabindex="0" href="https://lipad-fmc.dream.upd.edu.ph/layers/?limit=100&offset=0&keywords__slug__in=flood-hazard-map">Flood Hazard Map</a></li>
                           </ul>
                         </li>
-                        <li><a href="/maps/">Maps</a></li>
+                        <li><a href="https://lipad.dream.upd.edu.ph/maps/">Maps</a></li>
                       </ul>
                   </li>
             <li id="nav_documents" class="dropdown">
-              <a href="{% url "document_browse" %}" class="dropdown-toggle js-activated" data-toggle="dropdown">{% trans "Documents" %} <span class="caret"></span></a>
+              <a href="https://lipad.dream.upd.edu.ph{% url "document_browse" %}" class="dropdown-toggle js-activated" data-toggle="dropdown">{% trans "Documents" %} <span class="caret"></span></a>
 	      <ul class="dropdown-menu">
-		<li><a href="{% url "document_browse" %}">{% trans "Documents" %}</a></li>
-		<li><a href="{% url "eula" %}">{% trans "EULA" %}</a></li>
+		<li><a href="https://lipad.dream.upd.edu.ph{% url "document_browse" %}">{% trans "Documents" %}</a></li>
+		<li><a href="https://lipad.dream.upd.edu.ph{% url "eula" %}">{% trans "EULA" %}</a></li>
 	      </ul>
             </li>
            {% block extra_tab %}
            {% endblock %}
             {% if request.user.is_superuser %}
             <li id="nav_people">
-              <a href="{% url "profile_browse" %}">{% trans "People" %}</a>
+              <a href="https://lipad.dream.upd.edu.ph{% url "profile_browse" %}">{% trans "People" %}</a>
             </li>
             <li id="nav_groups">
-              <a href="{% url "group_list" %}">{% trans "Groups" %}</a>
+              <a href="https://lipad.dream.upd.edu.ph{% url "group_list" %}">{% trans "Groups" %}</a>
             </li>
 
 	            <li id="nav_datastore">
-	              <a href="{% url "data_management" %}">{% trans "Data Management" %}</a>
+	              <a href="https://lipad.dream.upd.edu.ph{% url "data_management" %}">{% trans "Data Management" %}</a>
 	            </li>
             {% endif %}
 
@@ -106,9 +106,9 @@
           </form>
           <ul class="nav navbar-nav navbar-right">
             {% if not user.is_authenticated  %}
-            <li><a href="{% url 'datarequests:registration_part_one' %}">{% trans "Register" %}</a></li>
+            <li><a href="https://lipad.dream.upd.edu.ph{% url 'datarequests:registration_part_one' %}">{% trans "Register" %}</a></li>
             {% elif not user.is_superuser %}
-            <li><a href="{% url 'datarequests:registration_part_one' %}">{% trans "Request New Data" %}</a></li>
+            <li><a href="https://lipad.dream.upd.edu.ph{% url 'datarequests:registration_part_one' %}">{% trans "Request New Data" %}</a></li>
             {% endif %}
             {% if user.is_authenticated %}
             <li>
@@ -161,7 +161,7 @@
         <div class="row">
           <div class="col-md-8">
             &copy; {% trans "2015 UP-DOST Phil LiDAR 1 Program. All Rights Reserved" %} |
-            <a href="{% url "about" %}">{% trans "About LiPAD" %}</a>
+            <a href="https://lipad.dream.upd.edu.ph{% url "about" %}">{% trans "About LiPAD" %}</a>
           </div>
           <div class="col-md-4">
             <label class="hidden">{% trans "Language" %}</label>
@@ -226,29 +226,29 @@
           </div>
           <div class="modal-body">
             <ul class="list-unstyled">
-              <li><a href="{% url "layer_upload" %}"><i class="fa fa-cloud-upload"></i> {% trans "Upload Layers" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "layer_upload" %}"><i class="fa fa-cloud-upload"></i> {% trans "Upload Layers" %}</a></li>
               <li class="modal-divider"></li>
-              <li><a href="{{ user.get_absolute_url }}"><i class="fa fa-user"></i> {% trans "Profile" %}</a></li>
-              <li><a href="{% url "recent-activity" %}"><i class="fa fa-fire"></i> {% trans "Recent Activity" %}</a></li>
-              <li><a href="{% url "messages_inbox" %}"><i class="fa fa-inbox"></i> {% trans "Inbox" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{{ user.get_absolute_url }}"><i class="fa fa-user"></i> {% trans "Profile" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "recent-activity" %}"><i class="fa fa-fire"></i> {% trans "Recent Activity" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "messages_inbox" %}"><i class="fa fa-inbox"></i> {% trans "Inbox" %}</a></li>
               {% if USE_NOTIFICATIONS %}
-                <li><a href="{% url "notification_notice_settings" %}"><i class="fa fa-bell"></i> {% trans "Notifications" %}</a></li>
+                <li><a href="https://lipad.dream.upd.edu.ph{% url "notification_notice_settings" %}"><i class="fa fa-bell"></i> {% trans "Notifications" %}</a></li>
               {% endif %}
               {% if perms.announcements.can_manage %}
-              <li><a href="{% url "announcements_list" %}"><i class="fa fa-bullhorn"></i> {% trans "Announcements" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "announcements_list" %}"><i class="fa fa-bullhorn"></i> {% trans "Announcements" %}</a></li>
               {% endif %}
               {% if user.is_superuser %}
-              <li><a href="{% url "datarequests:data_request_browse" %}"><i class="fa fa-users"></i> {% trans "Data Request Profiles" %}</a></li>
-              <li><a href="{% url "services" %}"><i class="fa fa-globe"></i> {% trans "Remote Services" %}</a></li>
-              <li><a href="{% url "account_invite_user" %}"><i class="fa fa-edit"></i> {% trans "Invite User" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "datarequests:data_request_browse" %}"><i class="fa fa-users"></i> {% trans "Data Request Profiles" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "services" %}"><i class="fa fa-globe"></i> {% trans "Remote Services" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "account_invite_user" %}"><i class="fa fa-edit"></i> {% trans "Invite User" %}</a></li>
               <li class="modal-divider"></li>
-              <li><a href="{{ GEOSERVER_BASE_URL }}"><i class="fa fa-gears"></i> {% trans "GeoServer" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{{ GEOSERVER_BASE_URL }}"><i class="fa fa-gears"></i> {% trans "GeoServer" %}</a></li>
               {% endif %}
               {% if user.is_staff %}
-              <li><a href="{% url "admin:index" %}"><i class="fa fa-cog"></i> {% trans "Admin" %}</a></li>
+              <li><a href="https://lipad.dream.upd.edu.ph{% url "admin:index" %}"><i class="fa fa-cog"></i> {% trans "Admin" %}</a></li>
               {% endif %}
               <li class="modal-divider"></li>
-              <li><a title="Help" rel="tooltip" href="/help/"><i class="fa fa-question-circle"></i> {% trans "Help" %}</a></li>
+              <li><a title="Help" rel="tooltip" href="https://lipad.dream.upd.edu.ph/help/"><i class="fa fa-question-circle"></i> {% trans "Help" %}</a></li>
             </ul>
           </div>
           <div class="modal-footer">
