@@ -22,6 +22,8 @@ import os
 import tempfile
 import taggit
 
+from pprint import pprint
+
 from django import forms
 from django.utils import simplejson as json
 from django.utils.translation import ugettext as _
@@ -37,6 +39,7 @@ from geonode.base.models import Region
 import autocomplete_light
 
 from geonode.eula.models import AnonDownloader
+
 from captcha.fields import ReCaptchaField
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Fieldset, HTML, Div, Column, Row, Field
@@ -58,6 +61,29 @@ class AnonDownloaderForm(forms.ModelForm):
         self.helper = FormHelper()
         super(AnonDownloaderForm, self).__init__(*args, **kwargs)
         self.fields['captcha'].error_messages = {'required': 'Please answer the Captcha to continue.'}
+        self.helper.form_tag = False
+        self.helper.render_required_fields = True
+        self.helper.layout = Layout(
+            Fieldset('Requester Information',
+                Div(
+                    Field('anon_first_name', css_class='form-control'),
+                    Field('anon_last_name', css_class='form-control'),
+                    Field('anon_email', css_class='form-control'),
+                    css_class='form-group'
+                ),
+                Div(
+                    Field('anon_organization', css_class='form-control'),
+                    Field('anon_purpose', css_class='form-control'),
+                    css_class='form-group'
+                ),
+            ),
+            Div(
+
+                HTML("<br/><section class=widget>"),
+                Field('captcha'),
+                HTML("</section>")
+            ),
+        )
 
 class JSONField(forms.CharField):
 
@@ -173,7 +199,7 @@ class LayerForm(TranslationModelForm):
 
 
 class LayerUploadForm(forms.Form):
-    base_file = forms.FileField()
+    base_file = forms.FileField(required=False)
     dbf_file = forms.FileField(required=False)
     shx_file = forms.FileField(required=False)
     prj_file = forms.FileField(required=False)
@@ -256,7 +282,6 @@ class NewLayerUploadForm(LayerUploadForm):
         "prj_file",
         "sld_file",
         "xml_file")
-
 
 class LayerDescriptionForm(forms.Form):
     title = forms.CharField(300)

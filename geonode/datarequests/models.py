@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.sites.models import Site
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.core.mail import EmailMultiAlternatives
 from django.core.urlresolvers import reverse
 from django.template.defaultfilters import slugify
@@ -18,14 +19,17 @@ from model_utils import Choices
 from model_utils.models import TimeStampedModel
 
 from geonode.cephgeo.models import UserJurisdiction
-from geonode.groups.models import GroupProfile
+from geonode.groups.models import GroupProfile, GroupMember
 from geonode.layers.models import Layer
+from geonode.documents.models import Document
 from geonode.people.models import OrganizationType, Profile
 from geonode.utils import resolve_object
 from geonode.base.models import ResourceBase
 from geonode.tasks.mk_folder import create_folder
 
 from pprint import pprint
+
+import traceback
 
 import geonode.settings as local_settings
 
@@ -49,7 +53,9 @@ class DataRequestProfile(TimeStampedModel):
     REQUEST_STATUS_CHOICES = Choices(
         ('pending', _('Pending')),
         ('approved', _('Approved')),
+        ('cancelled', _('Cancelled')),
         ('rejected', _('Rejected')),
+        ('unconfirmed',_('Unconfirmed Email')),
     )
 
     REQUESTER_TYPE_CHOICES = Choices(
@@ -77,43 +83,36 @@ class DataRequestProfile(TimeStampedModel):
         ('reason3', _('Reason 3')),
     )
 
-    profile = models.OneToOneField(
+    profile = models.ForeignKey(
         Profile,
         on_delete=models.SET_NULL,
         null=True,
         blank=True
     )
-    
+
     username = models.CharField(
         _('User name'),
         max_length=50,
         null=True,
         blank=True,
     )
-    # Do not require for now
+
     # jurisdiction_shapefile = models.ForeignKey(Layer, null=False, blank=False)
     jurisdiction_shapefile = models.ForeignKey(Layer, null=True, blank=True)
 
     request_status = models.CharField(
         _('Status of Data Request'),
         choices=REQUEST_STATUS_CHOICES,
-        default=REQUEST_STATUS_CHOICES.pending,
-        max_length=10,
+        default=REQUEST_STATUS_CHOICES.unconfirmed,
+        max_length=12,
         null=True,
         blank=True,
     )
-    requester_type = models.CharField(
-        _('Data Requester Type'),
-        choices=REQUESTER_TYPE_CHOICES,
-        default=REQUESTER_TYPE_CHOICES.commercial,
-        max_length=20,
-        null=True,
-        blank=True,
-    )
+
     first_name = models.CharField(_('First Name'), max_length=100)
     middle_name = models.CharField(_('Middle Name'), max_length=100)
     last_name = models.CharField(_('Last Name'), max_length=100)
-    
+
     organization = models.CharField(
         _('Office/Organization Name'),
         max_length=255
@@ -130,7 +129,7 @@ class DataRequestProfile(TimeStampedModel):
     data_type_requested = models.CharField(
         _('Type of Data Requested'),
         choices=DATA_TYPE_CHOICES,
-        default=DATA_TYPE_CHOICES.interpreted,
+        default=DATA_TYPE_CHOICES.processed,
         max_length=15,
     )
     """
@@ -149,15 +148,8 @@ class DataRequestProfile(TimeStampedModel):
         help_text=_('pixels per inch'),
     )
     """
-    license_period = models.CharField(
-        _('Liense Period'),
-        max_length=50,
-    )
-    has_subscription = models.BooleanField(
-        _('Subscription/Maintenance?'),
-        default=False)
-    
-    purpose = models.TextField(_('Purpose/Intended Use of Data'))
+
+    purpose = models.TextField(_('Purpose of Data'))
     intended_use_of_dataset = models.CharField(
         _('Intended Use of Dataset'),
         choices=DATASET_USE_CHOICES,
@@ -196,6 +188,9 @@ class DataRequestProfile(TimeStampedModel):
         null=True,
         )
 
+    #For request letter
+    request_letter= models.ForeignKey(Document, null=True, blank=True)
+
     # For email verification
     verification_key = models.CharField(max_length=50)
     key_created_date = models.DateTimeField(
@@ -217,7 +212,20 @@ class DataRequestProfile(TimeStampedModel):
         max_length=100,
         #validators=[validators.RegexValidator(regex="^Others\/[a-zA-Z]{6,15}[0-9]{0,4}")]
         )
-    
+
+    administrator = models.ForeignKey(
+        Profile,
+        null=True,
+        blank=True,
+        related_name="+"
+    )
+
+    action_date = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text=_('The date and time this data request was approved or rejected'),
+    )
+
     class Meta:
         verbose_name = _('Data Request Profile')
         verbose_name_plural = _('Data Request Profiles')
@@ -254,10 +262,11 @@ class DataRequestProfile(TimeStampedModel):
             '?key=' + self.verification_key + '&email=' +
             urlquote(self.email)
         )
-        verification_url = iri_to_uri(verification_url)
+        verification_url = iri_to_uri(verification_url).replace("//", "/")
+        pprint(verification_url)
 
         text_content = """
-         Hi <strong>{}</strong>,
+         Dear <strong>{}</strong>,
 
         Please paste the following URL in your browser to verify your email and complete your Data Request Registration.
         {}
@@ -273,7 +282,7 @@ class DataRequestProfile(TimeStampedModel):
          )
 
         html_content = """
-        <p>Hi <strong>{}</strong>,</p>
+        <p>Dear <strong>{}</strong>,</p>
 
        <p>Please click on the following link to verify your email and complete your Data Request Registration.</p>
        <p><a rel="nofollow" target="_blank" href="{}">{}</a></p>
@@ -347,14 +356,14 @@ class DataRequestProfile(TimeStampedModel):
         msg.send()
 
 
-    def send_rejection_email(self):
+    def send_account_rejection_email(self):
 
-        additional_details = 'Additional Details: ' + self.additional_rejection_reason
+        additional_details = 'Additional Details: ' + str(self.additional_rejection_reason)
 
         text_content = """
-         Hi {},
+         Dear {},
 
-        Your data request registration for LiPAD was rejected.
+        Your account registration for LiPAD was not approved.
         Reason: {}
         {}
 
@@ -370,9 +379,9 @@ class DataRequestProfile(TimeStampedModel):
          )
 
         html_content = """
-        <p>Hi <strong>{}</strong>,</p>
+        <p>Dear <strong>{}</strong>,</p>
 
-       <p>Your data request registration for LiPAD was rejected.</p>
+       <p>Your account registration for LiPAD was not approved.</p>
        <p>Reason: {} <br/>
        {}</p>
        <p>If you have further questions, you can contact us as at <a href="mailto:{}" target="_top">{}</a></p>
@@ -387,7 +396,58 @@ class DataRequestProfile(TimeStampedModel):
              local_settings.LIPAD_SUPPORT_MAIL
         )
 
-        email_subject = _('[LiPAD] Data Request Registration Status')
+        email_subject = _('[LiPAD] Account Registration Status')
+
+        msg = EmailMultiAlternatives(
+            email_subject,
+            text_content,
+            settings.DEFAULT_FROM_EMAIL,
+            [self.email, ]
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+    def send_request_rejection_email(self):
+
+        additional_details = 'Additional Details: ' + str(self.additional_rejection_reason)
+
+        text_content = """
+        Dear {},
+
+        Your data request for LiPAD was not approved.
+        Reason: {}
+        {}
+
+        If you have further questions, you can contact us as at {}.
+
+        Regards,
+        LiPAD Team
+         """.format(
+             self.first_name,
+             self.rejection_reason,
+             additional_details,
+             local_settings.LIPAD_SUPPORT_MAIL,
+         )
+
+        html_content = """
+        <p>Dear <strong>{}</strong>,</p>
+
+       <p>Your data request for LiPAD was not approved.</p>
+       <p>Reason: {} <br/>
+       {}</p>
+       <p>If you have further questions, you can contact us as at <a href="mailto:{}" target="_top">{}</a></p>
+       </br>
+        <p>Regards,</p>
+        <p>LiPAD Team</p>
+        """.format(
+             self.first_name,
+             self.rejection_reason,
+             additional_details,
+             local_settings.LIPAD_SUPPORT_MAIL,
+             local_settings.LIPAD_SUPPORT_MAIL
+        )
+
+        email_subject = _('[LiPAD] Data Request Status')
 
         msg = EmailMultiAlternatives(
             email_subject,
@@ -403,54 +463,80 @@ class DataRequestProfile(TimeStampedModel):
         pprint("Creating account for "+uname)
         dn = create_ad_account(self, uname)
         if dn is not False:
-            
+
             add_to_ad_group(group_dn=settings.LIPAD_LDAP_GROUP_DN, user_dn=dn)
-            
+
             profile = LDAPBackend().populate_user(uname)
+            profile.organization_type = self.organization_type
+            profile.save()
             if profile is None:
                 pprint("Account was not created")
                 raise Http404
-            
-            # Link data request to profile and updating other fields of the request
-            self.username = uname
-            self.profile = profile
-            self.ftp_folder = directory = "Others/"+uname
-            self.save()
-            
-            # Link shapefile to account
-            UserJurisdiction.objects.create(
-                user=profile,
-                jurisdiction_shapefile=self.jurisdiction_shapefile,
-            )
-            
-            #Add view permission on resource
-            resource = self.jurisdiction_shapefile
-            perms = resource.get_all_level_info()
-            perms["users"][profile.username]=["view_resourcebase"]
-            resource.set_permissions(perms);
 
-            # Add account to requesters group
-            group_name = "Data Requesters"
-            requesters_group, created = GroupProfile.objects.get_or_create(
-                title=group_name,
-                slug=slugify(group_name),
-                access='private',
-            )
+            self.update_profile_details(uname=uname, profile = profile)
 
-            requesters_group.join(profile)
-            
-            pprint("creating user folder for "+uname)
-            create_folder.delay(uname)
-            
-            self.request_status = 'approved'
-            self.save()
-
-            self.send_approval_email(uname, directory)
-            
         else:
             raise Http404
 
-    def send_approval_email(self, username, directory):
+    def join_requester_grp(self):
+        # Add account to requesters group
+        group_name = "Data Requesters"
+        requesters_group, created = GroupProfile.objects.get_or_create(
+            title=group_name,
+            slug=slugify(group_name),
+            access='private',
+        )
+
+        try:
+            group_member = GroupMember.objects.get(group=requesters_group, user=self.profile)
+            if not group_member:
+                requesters_group.join(self.profile, role='member')
+        except ObjectDoesNotExist as e:
+            requesters_group.join(self.profile, role='member')
+            #raise ValueError("Unable to add user to the group")
+
+
+    def assign_jurisdiction(self):
+        # Link shapefile to account
+        uj = None
+        try:
+            uj = UserJurisdiction.objects.get(user=self.profile)
+        except ObjectDoesNotExist as e:
+            pprint("No previous jurisdiction shapefile set")
+            uj = UserJurisdiction()
+            uj.user = self.profile
+        finally:
+            uj.jurisdiction_shapefile = self.jurisdiction_shapefile
+            uj.save()
+        #Add view permission on resource
+        resource = self.jurisdiction_shapefile
+        perms = resource.get_all_level_info()
+        perms["users"][self.profile.username]=["view_resourcebase"]
+        resource.set_permissions(perms)
+
+    def update_profile_details(self, uname="",profile=None):
+        # Link data request to profile and updating other fields of the request
+        self.username = uname
+        self.profile = profile
+        self.ftp_folder = "Others/"+uname
+        self.save()
+
+    def create_directory(self):
+        pprint("creating user folder for "+self.username)
+        create_folder.delay(self.username)
+
+    def set_approved(self, is_new_acc):
+        self.request_status = 'approved'
+        self.action_date = timezone.now()
+        self.save()
+
+        if is_new_acc:
+            self.send_account_approval_email(self.username, self.ftp_folder)
+        else:
+            self.send_request_approval_email(self.username)
+
+
+    def send_account_approval_email(self, username, directory):
 
         site = Site.objects.get_current()
         profile_url = (
@@ -460,16 +546,14 @@ class DataRequestProfile(TimeStampedModel):
         profile_url = iri_to_uri(profile_url)
 
         text_content = """
-         Hi {},
+        Dear {},
 
-        Your data request registration for LiPAD was approved!
+        Your account registration for LiPAD was approved.
         You will now be able to log in using the following log-in credentials:
         username: {}
-        
-        Your designated FTP directory is: {}
-        
-        Before you are able to login to LiPAD, visit first https://ssp.dream.upd.edu.ph/?action=sendtoken and follow the instructions to (re)set a password for your account
-        
+
+        Before you are able to login to LiPAD, visit first https://ssp.dream.upd.edu.ph/?action=sendtoken and follow the instructions to reset a password for your account.
+
         You will be able to edit your account details by logging in and going to the following link:
         {}
 
@@ -486,14 +570,12 @@ class DataRequestProfile(TimeStampedModel):
          )
 
         html_content = """
-        <p>Hi <strong>{}</strong>,</p>
+        <p>Dear <strong>{}</strong>,</p>
 
-       <p>Your data request registration for LiPAD was approved! You will now be able to log in using the following log-in credentials:</p>
+       <p>Your account registration for LiPAD was approved! You will now be able to log in using the following log-in credentials:</p>
        username: <strong>{}</strong><br/>
        </br>
-       Your designated FTP directory is: <strong{}</strong><br/>
-       </br>
-       <p>Before you are able to login to LiPAD, visit first https://ssp.dream.upd.edu.ph/?action=sendtoken and follow the instructions to (re)set a password for your account</p></br>
+       <p>Before you are able to login to LiPAD, visit first https://ssp.dream.upd.edu.ph/?action=sendtoken and follow the instructions to reset a password for your account</p></br>
        <p>You will be able to edit your account details by logging in and going to the following link:</p>
        {}
        </br>
@@ -510,7 +592,55 @@ class DataRequestProfile(TimeStampedModel):
              local_settings.LIPAD_SUPPORT_MAIL
          )
 
-        email_subject = _('[LiPAD] Data Request Registration Status')
+        email_subject = _('[LiPAD] Account Registration Status')
+
+        msg = EmailMultiAlternatives(
+            email_subject,
+            text_content,
+            settings.DEFAULT_FROM_EMAIL,
+            [self.email, ]
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+    def send_request_approval_email(self, username):
+        site = Site.objects.get_current()
+        profile_url = (
+            str(site) +
+            reverse('profile_detail', kwargs={'username': username})
+        )
+        profile_url = iri_to_uri(profile_url)
+
+        text_content = """
+        Dear {},
+
+        Your current data request for LiPAD was approved.
+
+        If you have any questions, you can contact us as at {}.
+
+        Regards,
+        LiPAD Team
+         """.format(
+             self.first_name,
+             local_settings.LIPAD_SUPPORT_MAIL
+         )
+
+        html_content = """
+        <p>Dear <strong>{}</strong>,</p>
+
+       <p>Your current data request in LiPAD was approved.
+       </br>
+       <p>If you have any questions, you can contact us as at <a href="mailto:{}" target="_top">{}</a></p>
+       </br>
+        <p>Regards,</p>
+        <p>LiPAD Team</p>
+        """.format(
+             self.first_name,
+             local_settings.LIPAD_SUPPORT_MAIL,
+             local_settings.LIPAD_SUPPORT_MAIL
+         )
+
+        email_subject = _('[LiPAD] Data Request Status')
 
         msg = EmailMultiAlternatives(
             email_subject,

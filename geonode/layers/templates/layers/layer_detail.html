@@ -135,14 +135,8 @@
 
         <li class="list-group-item">
         {% if links %}
-            {% if request.user.is_authenticated %}
-              {% eula_nested_modal_dialog "download-layer" %}
-              <button class="btn btn-primary btn-md btn-block" data-toggle="modal" data-target="#eula-nested-dialog">{% trans "Download Layer" %}</button>
-            {% else %}
-              {% eula_nested_modal_anonymous "download-layer" %}
-              <button class="btn btn-primary btn-md btn-block" data-toggle="modal" data-target="#eula-nested-anonymous">{% trans "Download Layer" %}</button>
-            {% endif %}
-
+            {% include "layers/layer_eula_nested_dialog.html" %}
+            <button class="btn btn-primary btn-md btn-block" data-toggle="modal" data-target="#eula-nested-dialog">{% trans "Download Layer" %}</button>
         {% else %}
           {% if request.user.is_authenticated %}
           <button class="btn btn-primary btn-md btn-block" id="request-download">{% trans "Request Download" %}</button>

@@ -1,6 +1,7 @@
 from django.db import models
 from geonode.layers.models import Layer
 from datetime import datetime
+from django.utils.translation import ugettext_lazy as _
 try:
     from django.conf import settings
     User = settings.AUTH_USER_MODEL
@@ -17,9 +18,10 @@ class EULALayerDownload(models.Model):
         return "{0}:{1}".format(self.user.username, self.layer.title)
 
 class AnonDownloader(models.Model):
-    anon_first_name = models.CharField(('anon_first_name'), max_length=100)
-    anon_last_name = models.CharField(('anon_last_name'), max_length=100)
-    anon_email = models.EmailField(('anon_email'), max_length=50)
-    anon_organization = models.CharField(('anon_organization'), max_length=100)
-    anon_purpose = models.CharField(('anon_purpose'), max_length=100)
-    
+    date = models.DateTimeField(auto_now=True)
+    anon_first_name = models.CharField(_('First Name'), max_length=100)
+    anon_last_name = models.CharField(_('Last Name'), max_length=100)
+    anon_email = models.EmailField(_('Email'), max_length=50)
+    anon_organization = models.CharField(_('Organization'), max_length=100)
+    anon_purpose = models.CharField(_('Purpose'), max_length=100)
+    anon_layer = models.ForeignKey(Layer, null=True, blank=True)

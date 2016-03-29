@@ -646,7 +646,7 @@ MAP_BASELAYERS = [{
     "source": {"ptype": "gxp_osmsource"},
     "type": "OpenLayers.Layer.OSM",
     "name": "mapnik",
-    "visibility": False,
+    "visibility": True,
     "fixed": True,
     "group": "background"
 }, {
@@ -890,6 +890,7 @@ SELECTION_LIMIT=209715200
 MUNICIPALITY_SHAPEFILE = 'geonode:phl_adm2_municipalities_utm_z51n'
 #Upload permissions on file
 FILE_UPLOAD_PERMISSIONS = 0664
+GEOSTORAGE_HOST = ""
 
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -923,3 +924,5 @@ if 'geonode.geoserver' in GEONODE_APPS:
     baselayers = MAP_BASELAYERS
     MAP_BASELAYERS = [LOCAL_GEOSERVER]
     MAP_BASELAYERS.extend(baselayers)
+
+FILE_UPLOAD_TEMP_DIR = "/tmp/geonode"

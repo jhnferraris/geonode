@@ -11,17 +11,18 @@ $(function() {
         $noncommercial.toggle(false);
         $academe.toggle(false);
     } else {
-        if ($org_type.val() != '4') {
+        if ($org_type.val() != '3') {
             $academe.toggle(false);
         } else {
             $academe.toggle(true);
         }
     }
+    
     $intended_use.on('change', function() {
 
         if ($(this).val() == 'noncommercial'){
             $noncommercial.slideDown();
-            if ($org_type.val() == '4') {
+            if ($org_type.val() == '3') {
                 $academe.slideDown();
             }
         } else {
@@ -32,13 +33,12 @@ $(function() {
 
     $org_type.on('change', function() {
 
-        if ($(this).val() == '4' && $intended_use.val() == 'noncommercial'){
+        if ($(this).val() == '3' && $intended_use.val() == 'noncommercial'){
             $academe.slideDown();
         } else {
             $academe.slideUp();
         }
     });
-
 
     // Data Set
     var $data_set = $("#id_data_set")
