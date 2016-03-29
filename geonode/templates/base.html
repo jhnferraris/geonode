@@ -160,8 +160,9 @@
       <div class="container">
         <div class="row">
           <div class="col-md-8">
-            &copy; {% trans "2015 UP-DOST Phil LiDAR 1 Program. All Rights Reserved" %} |
-            <a href="https://lipad.dream.upd.edu.ph{% url "about" %}">{% trans "About LiPAD" %}</a>
+            &copy; {% trans "2016 UP-DOST Phil LiDAR 1 Program. All Rights Reserved" %} |
+            <a href="https://lipad.dream.upd.edu.ph{% url "about" %}">{% trans "About" %}</a> |
+            <a href="https://lipad.dream.upd.edu.ph{% url "help" %}">{% trans "Help" %}</a>
           </div>
           <div class="col-md-4">
             <label class="hidden">{% trans "Language" %}</label>
@@ -242,7 +243,7 @@
               <li><a href="https://lipad.dream.upd.edu.ph{% url "services" %}"><i class="fa fa-globe"></i> {% trans "Remote Services" %}</a></li>
               <li><a href="https://lipad.dream.upd.edu.ph{% url "account_invite_user" %}"><i class="fa fa-edit"></i> {% trans "Invite User" %}</a></li>
               <li class="modal-divider"></li>
-              <li><a href="https://lipad.dream.upd.edu.ph{{ GEOSERVER_BASE_URL }}"><i class="fa fa-gears"></i> {% trans "GeoServer" %}</a></li>
+              <li><a href="{{ GEOSERVER_BASE_URL }}"><i class="fa fa-gears"></i> {% trans "GeoServer" %}</a></li>
               {% endif %}
               {% if user.is_staff %}
               <li><a href="https://lipad.dream.upd.edu.ph{% url "admin:index" %}"><i class="fa fa-cog"></i> {% trans "Admin" %}</a></li>
