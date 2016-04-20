@@ -246,7 +246,7 @@
               <li><a href="{{ GEOSERVER_BASE_URL }}"><i class="fa fa-gears"></i> {% trans "GeoServer" %}</a></li>
               {% endif %}
               {% if user.is_staff %}
-              <li><a href="https://lipad.dream.upd.edu.ph{% url "admin:index" %}"><i class="fa fa-cog"></i> {% trans "Admin" %}</a></li>
+              <li><a href="{% url "admin:index" %}"><i class="fa fa-cog"></i> {% trans "Admin" %}</a></li>
               {% endif %}
               <li class="modal-divider"></li>
               <li><a title="Help" rel="tooltip" href="https://lipad.dream.upd.edu.ph/help/"><i class="fa fa-question-circle"></i> {% trans "Help" %}</a></li>
