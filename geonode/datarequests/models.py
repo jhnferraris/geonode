@@ -6,6 +6,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.core.urlresolvers import reverse
 from django.template.defaultfilters import slugify
 from django.http import HttpResponse, HttpResponseRedirect, Http404
+from django.utils import dateformat
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.translation import ugettext as _
@@ -13,7 +14,7 @@ from django.utils.encoding import iri_to_uri
 from django.utils.http import urlquote
 from django_enumfield import enum
 from django.core import validators
-from django_auth_ldap.backend import LDAPBackend
+from django_auth_ldap.backend import LDAPBackend, ldap_error
 
 from model_utils import Choices
 from model_utils.models import TimeStampedModel
@@ -28,6 +29,7 @@ from geonode.base.models import ResourceBase
 from geonode.tasks.mk_folder import create_folder
 
 from pprint import pprint
+from unidecode import unidecode
 
 import traceback
 
@@ -61,7 +63,6 @@ class DataRequestProfile(TimeStampedModel):
     REQUESTER_TYPE_CHOICES = Choices(
         ('commercial', _('Commercial Requester')),
         ('noncommercial', _('Non-Commercial Requester')),
-        ('academe', _('Academe Requester')),
     )
 
     DATASET_USE_CHOICES = Choices(
@@ -97,7 +98,6 @@ class DataRequestProfile(TimeStampedModel):
         blank=True,
     )
 
-    # jurisdiction_shapefile = models.ForeignKey(Layer, null=False, blank=False)
     jurisdiction_shapefile = models.ForeignKey(Layer, null=True, blank=True)
 
     request_status = models.CharField(
@@ -109,9 +109,9 @@ class DataRequestProfile(TimeStampedModel):
         blank=True,
     )
 
-    first_name = models.CharField(_('First Name'), max_length=100)
-    middle_name = models.CharField(_('Middle Name'), max_length=100)
-    last_name = models.CharField(_('Last Name'), max_length=100)
+    first_name = models.CharField(_('First Name'), max_length=21)
+    middle_name = models.CharField(_('Middle Name'), max_length=21, null=False, blank=False)
+    last_name = models.CharField(_('Last Name'), max_length=21)
 
     organization = models.CharField(
         _('Office/Organization Name'),
@@ -123,9 +123,9 @@ class DataRequestProfile(TimeStampedModel):
         default=LOCATION_CHOICES.local,
         max_length=10,
     )
-    email = models.EmailField(_('Email Address'), max_length=50)
+    email = models.EmailField(_('Email Address'), max_length=64)
     contact_number = models.CharField(_('Contact Number'), max_length=255)
-    project_summary = models.TextField(_('Summary of Project/Program'))
+    project_summary = models.TextField(_('Summary of Project/Program'), null=True, blank=True)
     data_type_requested = models.CharField(
         _('Type of Data Requested'),
         choices=DATA_TYPE_CHOICES,
@@ -136,20 +136,24 @@ class DataRequestProfile(TimeStampedModel):
     data_set = models.CharField(
         _('Data/Data Set Subject to License'),
         max_length=100,
-    )
+    )"""
     area_coverage = models.DecimalField(
         _('Area of Coverage'),
         max_digits=30,
         decimal_places=4,
         help_text=_('Sqr KMs'),
+        default=0,
+        null=True,
+        blank=True,
     )
+    """
     data_resolution = models.PositiveIntegerField(
         _('Data Resolution'),
         help_text=_('pixels per inch'),
     )
     """
 
-    purpose = models.TextField(_('Purpose of Data'))
+    purpose = models.TextField(_('Purpose of Data'), null=True, blank = True)
     intended_use_of_dataset = models.CharField(
         _('Intended Use of Dataset'),
         choices=DATASET_USE_CHOICES,
@@ -165,12 +169,14 @@ class DataRequestProfile(TimeStampedModel):
         _('Level of Request'),
         choices=REQUEST_LEVEL_CHOICES,
         blank=True,
+        null=True,
         max_length=15,
     )
     funding_source = models.CharField(
         _('Source of Funding'),
         max_length=255,
         blank=True,
+        null=True
     )
     is_consultant = models.BooleanField(
         _('Consultant in behalf of another organization?'),
@@ -188,6 +194,21 @@ class DataRequestProfile(TimeStampedModel):
         null=True,
         )
 
+    #For place name
+    place_name = models.CharField(
+        _('Geolocation name provided by Google'),
+        null=True,
+        blank=True,
+        max_length=50,
+    )
+
+    #For jurisdiction data size
+    juris_data_size = models.FloatField(
+        _('Data size of requested jurisdiction'),
+        null=True,
+        blank=True,
+    )
+    
     #For request letter
     request_letter= models.ForeignKey(Document, null=True, blank=True)
 
@@ -235,7 +256,7 @@ class DataRequestProfile(TimeStampedModel):
         return (_('{} request by {} {} {} of {}')
                 .format(
                     self.request_status,
-                    self.first_name,
+                    unidecode(self.first_name),
                     self.middle_name,
                     self.last_name,
                     self.organization,
@@ -263,7 +284,6 @@ class DataRequestProfile(TimeStampedModel):
             urlquote(self.email)
         )
         verification_url = iri_to_uri(verification_url).replace("//", "/")
-        pprint(verification_url)
 
         text_content = """
          Dear <strong>{}</strong>,
@@ -276,7 +296,7 @@ class DataRequestProfile(TimeStampedModel):
         Regards,
         LiPAD Team
          """.format(
-             self.first_name,
+             unidecode(self.first_name),
              verification_url,
              local_settings.LIPAD_SUPPORT_MAIL,
          )
@@ -291,7 +311,7 @@ class DataRequestProfile(TimeStampedModel):
         <p>Regards,</p>
         <p>LiPAD Team</p>
         """.format(
-            self.first_name,
+            unidecode(self.first_name),
             verification_url,
             verification_url,
             local_settings.LIPAD_SUPPORT_MAIL,
@@ -317,25 +337,25 @@ class DataRequestProfile(TimeStampedModel):
         )
 
         text_content = """
-        Hi,
+        Hi LiPAD Admins,
 
         A new data request has been submitted by {} {}. You can view the data request profile using the following link:
         {}
         """.format(
-            self.first_name,
-            self.last_name,
+            unidecode(self.first_name),
+            unidecode(self.last_name),
             data_request_url,
         )
 
         html_content = """
-        <p>Hi,</p>
+        <p>Hi LiPAD Admins,</p>
 
         <p>A new data request has been submitted by {} {}. You can view the data request profile using the following link:</p>
         <p><a rel="nofollow" target="_blank" href="{}">{}</a></p>
 
         """.format(
-            self.first_name,
-            self.last_name,
+            unidecode(self.first_name),
+            unidecode(self.last_name),
             data_request_url,
             data_request_url,
         )
@@ -372,7 +392,7 @@ class DataRequestProfile(TimeStampedModel):
         Regards,
         LiPAD Team
          """.format(
-             self.first_name,
+             unidecode(self.first_name),
              self.rejection_reason,
              additional_details,
              local_settings.LIPAD_SUPPORT_MAIL,
@@ -389,7 +409,7 @@ class DataRequestProfile(TimeStampedModel):
         <p>Regards,</p>
         <p>LiPAD Team</p>
         """.format(
-             self.first_name,
+             unidecode(self.first_name),
              self.rejection_reason,
              additional_details,
              local_settings.LIPAD_SUPPORT_MAIL,
@@ -423,7 +443,7 @@ class DataRequestProfile(TimeStampedModel):
         Regards,
         LiPAD Team
          """.format(
-             self.first_name,
+             unidecode(self.first_name),
              self.rejection_reason,
              additional_details,
              local_settings.LIPAD_SUPPORT_MAIL,
@@ -440,7 +460,7 @@ class DataRequestProfile(TimeStampedModel):
         <p>Regards,</p>
         <p>LiPAD Team</p>
         """.format(
-             self.first_name,
+             unidecode(self.first_name),
              self.rejection_reason,
              additional_details,
              local_settings.LIPAD_SUPPORT_MAIL,
@@ -457,84 +477,6 @@ class DataRequestProfile(TimeStampedModel):
         )
         msg.attach_alternative(html_content, "text/html")
         msg.send()
-
-    def create_account(self):
-        uname = create_login_credentials(self)
-        pprint("Creating account for "+uname)
-        dn = create_ad_account(self, uname)
-        if dn is not False:
-
-            add_to_ad_group(group_dn=settings.LIPAD_LDAP_GROUP_DN, user_dn=dn)
-
-            profile = LDAPBackend().populate_user(uname)
-            profile.organization_type = self.organization_type
-            profile.save()
-            if profile is None:
-                pprint("Account was not created")
-                raise Http404
-
-            self.update_profile_details(uname=uname, profile = profile)
-
-        else:
-            raise Http404
-
-    def join_requester_grp(self):
-        # Add account to requesters group
-        group_name = "Data Requesters"
-        requesters_group, created = GroupProfile.objects.get_or_create(
-            title=group_name,
-            slug=slugify(group_name),
-            access='private',
-        )
-
-        try:
-            group_member = GroupMember.objects.get(group=requesters_group, user=self.profile)
-            if not group_member:
-                requesters_group.join(self.profile, role='member')
-        except ObjectDoesNotExist as e:
-            requesters_group.join(self.profile, role='member')
-            #raise ValueError("Unable to add user to the group")
-
-
-    def assign_jurisdiction(self):
-        # Link shapefile to account
-        uj = None
-        try:
-            uj = UserJurisdiction.objects.get(user=self.profile)
-        except ObjectDoesNotExist as e:
-            pprint("No previous jurisdiction shapefile set")
-            uj = UserJurisdiction()
-            uj.user = self.profile
-        finally:
-            uj.jurisdiction_shapefile = self.jurisdiction_shapefile
-            uj.save()
-        #Add view permission on resource
-        resource = self.jurisdiction_shapefile
-        perms = resource.get_all_level_info()
-        perms["users"][self.profile.username]=["view_resourcebase"]
-        resource.set_permissions(perms)
-
-    def update_profile_details(self, uname="",profile=None):
-        # Link data request to profile and updating other fields of the request
-        self.username = uname
-        self.profile = profile
-        self.ftp_folder = "Others/"+uname
-        self.save()
-
-    def create_directory(self):
-        pprint("creating user folder for "+self.username)
-        create_folder.delay(self.username)
-
-    def set_approved(self, is_new_acc):
-        self.request_status = 'approved'
-        self.action_date = timezone.now()
-        self.save()
-
-        if is_new_acc:
-            self.send_account_approval_email(self.username, self.ftp_folder)
-        else:
-            self.send_request_approval_email(self.username)
-
 
     def send_account_approval_email(self, username, directory):
 
@@ -557,12 +499,15 @@ class DataRequestProfile(TimeStampedModel):
         You will be able to edit your account details by logging in and going to the following link:
         {}
 
+        To download DTMs, DSMs, Classified LAZ and Orthophotos, please proceed to http://lipad.dream.upd.edu.ph/maptiles after logging in.
+        To download Flood Hazard Maps, Resource Layers and other datasets, please proceed to http://lipad.dream.upd.edu.ph/layers/.
+
         If you have any questions, you can contact us as at {}.
 
         Regards,
         LiPAD Team
          """.format(
-             self.first_name,
+             unidecode(self.first_name),
              username,
              directory,
              profile_url,
@@ -579,12 +524,15 @@ class DataRequestProfile(TimeStampedModel):
        <p>You will be able to edit your account details by logging in and going to the following link:</p>
        {}
        </br>
+       <p>To download DTMs, DSMs, Classified LAZ and Orthophotos, please proceed to <a href="http://lipad.dream.upd.edu.ph/maptiles">Data Tiles Section</a> under Data Store after logging in.</p>
+       <p>To download Flood Hazard Maps, Resource Layers and other datasets, please proceed to <a href="http://lipad.dream.upd.edu.ph/layers/">Layers Section</a> under Data Store.</p>
+
        <p>If you have any questions, you can contact us as at <a href="mailto:{}" target="_top">{}</a></p>
        </br>
         <p>Regards,</p>
         <p>LiPAD Team</p>
         """.format(
-             self.first_name,
+             unidecode(self.first_name),
              username,
              directory,
              profile_url,
@@ -616,12 +564,15 @@ class DataRequestProfile(TimeStampedModel):
 
         Your current data request for LiPAD was approved.
 
+        To download DTMs, DSMs, Classified LAZ and Orthophotos, please proceed to http://lipad.dream.upd.edu.ph/maptiles after logging in.
+        To download Flood Hazard Maps, Resource Layers and other datasets, please proceed to http://lipad.dream.upd.edu.ph/layers/.
+
         If you have any questions, you can contact us as at {}.
 
         Regards,
         LiPAD Team
          """.format(
-             self.first_name,
+             unidecode(self.first_name),
              local_settings.LIPAD_SUPPORT_MAIL
          )
 
@@ -629,13 +580,16 @@ class DataRequestProfile(TimeStampedModel):
         <p>Dear <strong>{}</strong>,</p>
 
        <p>Your current data request in LiPAD was approved.
+       <p>To download DTMs, DSMs, Classified LAZ and Orthophotos, please proceed to <a href="http://lipad.dream.upd.edu.ph/maptiles">Data Tiles Section</a> under Data Store after logging in.</p>
+       <p>To download Flood Hazard Maps, Resource Layers and other datasets, please proceed to <a href="http://lipad.dream.upd.edu.ph/layers/">Layers Section</a> under Data Store.</p>
+
        </br>
        <p>If you have any questions, you can contact us as at <a href="mailto:{}" target="_top">{}</a></p>
        </br>
         <p>Regards,</p>
         <p>LiPAD Team</p>
         """.format(
-             self.first_name,
+             unidecode(self.first_name),
              local_settings.LIPAD_SUPPORT_MAIL,
              local_settings.LIPAD_SUPPORT_MAIL
          )
@@ -651,6 +605,153 @@ class DataRequestProfile(TimeStampedModel):
         msg.attach_alternative(html_content, "text/html")
         msg.send()
 
+    def create_account(self):
+        profile = None
+        errors = []
+        if not self.username:
+            self.username = create_login_credentials(self)
+            self.save()
+            pprint(self.username)
+        else:
+            try:
+                profile = LDAPBackend().populate_user(self.username)
+                self.profile = profile
+                self.save()
+            except Exception as e:
+                pprint(traceback.format_exc())
+                return (False, "Account creation failed. Check /var/log/apache2/error.log for more details")
+
+        try:
+             if not self.profile:
+                pprint("Creating account for "+self.username)
+                dn = create_ad_account(self, self.username)
+                add_to_ad_group(group_dn=settings.LIPAD_LDAP_GROUP_DN, user_dn=dn)
+                profile = LDAPBackend().populate_user(self.username)
+
+                if profile:
+                    self.profile = profile
+                    self.save()
+
+                    profile.middle_name = self.middle_name
+                    profile.organization = self.organization
+                    profile.voice = self.contact_number
+                    profile.email = self.email
+                    profile.save()
+                else:
+                    pprint("Accout was not created")
+                    raise Exception("Account not created")
+        except Exception as e:
+            pprint(traceback.format_exc())
+            return (False, "Account creation failed. Check /var/log/apache2/error.log for more details")
+
+        self.join_requester_grp()
+
+        try:
+            if not self.ftp_folder:
+                self.create_directory()
+        except Exception as e:
+            pprint(traceback.format_exc())
+            return (False, "Folder creation failed, Check /var/log/apache2/error.log for more details")
+
+        return  (True, "Account creation successful")
+
+    def join_requester_grp(self):
+        # Add account to requesters group
+        group_name = "Data Requesters"
+        requesters_group, created = GroupProfile.objects.get_or_create(
+            title=group_name,
+            slug=slugify(group_name),
+            access='private',
+        )
+
+        try:
+            group_member = GroupMember.objects.get(group=requesters_group, user=self.profile)
+            if not group_member:
+                requesters_group.join(self.profile, role='member')
+        except ObjectDoesNotExist as e:
+            pprint(self.profile)
+            requesters_group.join(self.profile, role='member')
+            #raise ValueError("Unable to add user to the group")
+
+
+    def assign_jurisdiction(self):
+        # Link shapefile to account
+        uj = None
+        try:
+            uj = UserJurisdiction.objects.get(user=self.profile)
+        except ObjectDoesNotExist as e:
+            pprint("No previous jurisdiction shapefile set")
+            uj = UserJurisdiction()
+            uj.user = self.profile
+        finally:
+            uj.jurisdiction_shapefile = self.jurisdiction_shapefile
+            uj.save()
+        #Add view permission on resource
+        resource = self.jurisdiction_shapefile
+        perms = resource.get_all_level_info()
+        perms["users"][self.profile.username]=["view_resourcebase"]
+        resource.set_permissions(perms)
+
+    def create_directory(self):
+        pprint("creating user folder for "+self.username)
+        create_folder.delay(self.username)
+        self.ftp_folder = "Others/"+self.username
+        self.save()
+
+    def set_approved(self, is_new_acc):
+        self.request_status = 'approved'
+        self.action_date = timezone.now()
+        self.save()
+
+        if is_new_acc:
+            self.send_account_approval_email(self.username, self.ftp_folder)
+        else:
+            self.send_request_approval_email(self.username)
+
+    def to_values_list(self, fields=['id','name','email','contact_number', 'organization', 'project_summary', 'created','request_status', 'data_size','area_coverage']):
+        out = []
+        for f in fields:
+            if f  is 'id':
+                out.append(getattr(self, 'pk'))
+            elif f is 'name':
+                first_name = unidecode(getattr(self, 'first_name'))
+                last_name = unidecode(getattr(self,'last_name'))
+                out.append(first_name+" "+last_name)
+            elif f is 'created':
+                created = getattr(self, f)
+                out.append( str(created.month) +"/"+str(created.day)+"/"+str(created.year))
+            elif f == 'date of action':
+                date_of_action = getattr(self, 'action_date')
+                if date_of_action:
+                    out.append(str(date_of_action.month)+"/"+str(date_of_action.day)+"/"+str(date_of_action.year))
+                else:
+                    out.append('')
+            elif f is 'organization_type':
+                out.append(OrganizationType.get(getattr(self,'organization_type')))
+            elif f is 'has_letter':
+                if self.request_letter:
+                    out.append('yes')
+                else:
+                    out.append('no')
+            elif f is 'has_shapefile':
+                if self.jurisdiction_shapefile:
+                    out.append('yes')
+                else:
+                    out.append('no')
+            elif f is 'rejection_reason':
+                out.append(str(getattr(self,'rejection_reason')))
+            elif f is 'juris_data_size':
+                out.append(str(getattr(self,'juris_data_size')))
+            elif f is 'area_coverage':
+                out.append(str(getattr(self,'area_coverage')))
+            else:
+                val = getattr(self, f)
+                if isinstance(val, unicode):
+                    out.append(unidecode(val))
+                else:
+                    out.append(str(val))
+
+        return out
 
 class RequestRejectionReason(models.Model):
     reason = models.CharField(_('Reason for rejection'), max_length=100)

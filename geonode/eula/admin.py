@@ -11,8 +11,10 @@ class AnonDownloaderAdmin(admin.ModelAdmin):
         'anon_last_name',
         'anon_email',
         'anon_organization',
+        'anon_orgtype',
         'anon_purpose',
         'date',
-        'anon_layer')
+        'anon_layer',
+        'anon_document')
 
 admin.site.register(AnonDownloader, AnonDownloaderAdmin)

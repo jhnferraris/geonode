@@ -281,6 +281,9 @@ INSTALLED_APPS = (
 
     # Third party apps
 
+    #Single Sign On
+    #'simple_sso.sso_server',
+
     # Utility
     'pagination',
     'taggit',
@@ -421,10 +424,15 @@ MIDDLEWARE_CLASSES = (
 
 # Replacement of default authentication backend in order to support
 # permissions per object.
-AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
-    'guardian.backends.ObjectPermissionBackend',
-)
+#AUTHENTICATION_BACKENDS = (
+#   'django.contrib.auth.backends.ModelBackend',
+#    'guardian.backends.ObjectPermissionBackend',
+#)
+AUTHENTICATION_BACKENDS = ('django_auth_ldap.backend.LDAPBackend',
+                           #'geonode.security.auth.GranularBackend',
+                           'django.contrib.auth.backends.ModelBackend',
+                           'guardian.backends.ObjectPermissionBackend',)
+
 
 ANONYMOUS_USER_ID = -1
 GUARDIAN_GET_INIT_ANONYMOUS_USER = 'geonode.people.models.get_anonymous_user_instance'
@@ -487,6 +495,8 @@ LIPAD_SUPPORT_MAIL = 'lipad@dream.upd.edu.ph'
 FTP_SUPPORT_MAIL = 'lipad@dream.upd.edu.ph'
 FTP_AUTOMAIL = 'automailer@dream.upd.edu.ph'
 
+#get data coverage layer name
+PHILGRID_NAME = "philgrid_20160301"
 #
 # Test Settings
 #
@@ -794,18 +804,7 @@ LEAFLET_CONFIG = {
         # http://leaflet-extras.github.io/leaflet-providers/preview/
 
         # Stamen toner lite.
-        ('Watercolor',
-         'http://{s}.tile.stamen.com/watercolor/{z}/{x}/{y}.png',
-         'Map tiles by <a href="http://stamen.com">Stamen Design</a>, \
-         <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; \
-         <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, \
-         <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'),
-        ('Toner Lite',
-         'http://{s}.tile.stamen.com/toner-lite/{z}/{x}/{y}.png',
-         'Map tiles by <a href="http://stamen.com">Stamen Design</a>, \
-         <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; \
-         <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, \
-         <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'),
+        
     ],
     'PLUGINS': {
         'esri-leaflet': {
@@ -884,7 +883,8 @@ import djcelery
 djcelery.setup_loader()
 
 #TILED_SHAPEFILE = "geonode:cut_phl_001k_grid_utm_z51n"
-TILED_SHAPEFILE = "geonode:index"
+# TILED_SHAPEFILE = "geonode:index"
+TILED_SHAPEFILE = "geonode:philgrid_20160301"
 TILED_SHAPEFILE_TEST = "geonode:index"
 EULA_URL = '/eula/eula_form/'
 SELECTION_LIMIT=209715200
@@ -895,7 +895,8 @@ FILE_UPLOAD_PERMISSIONS = 0666
 GEOSTORAGE_HOST = ""
 
 FILE_UPLOAD_TEMP_DIR = "/tmp/geonode"
-THUMBNAIL_FILE_PERMISSIONS = 0664
+# THUMBNAIL_FILE_PERMISSIONS = 0664
+THUMBNAIL_FILE_PERMISSIONS = 0666
 
 # Load more settings from a file called local_settings.py if it exists
 try:
@@ -930,3 +931,4 @@ if 'geonode.geoserver' in GEONODE_APPS:
     MAP_BASELAYERS = [LOCAL_GEOSERVER]
     MAP_BASELAYERS.extend(baselayers)
 
+PH_BBOX= [116.22307468566594, 4.27103012208686, 127.09228398538997, 21.2510169394873 ]

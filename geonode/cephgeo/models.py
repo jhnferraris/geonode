@@ -97,10 +97,17 @@ class FTPRequestToObjectIndex(models.Model):
     
 class UserJurisdiction(models.Model):
     user = models.ForeignKey(Profile, null=False, blank=False)
-    jurisdiction_shapefile = models.ForeignKey(Layer, null=False, blank=False)
+    jurisdiction_shapefile = models.ForeignKey(Layer, null=True, blank=True)
     
     def get_shapefile_typename(self):
         return self.jurisdiction_shapefile.service_typename
     
     def get_user_name(self):
         return self.user.username
+
+class MissionGridRef(models.Model):
+    fieldID = models.IntegerField()
+    grid_ref = models.CharField(max_length=20)
+
+    def __unicode__(self):
+        return "{0}:{1}".format(self.grid_ref, self.fieldID)

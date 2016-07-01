@@ -23,12 +23,14 @@ import sys
 import logging
 import shutil
 import traceback
+import csv
+import datetime
 from pprint import pprint
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.urlresolvers import reverse
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import (
     redirect, get_object_or_404, render, render_to_response)
 from django.conf import settings
@@ -60,9 +62,14 @@ from geonode.utils import build_social_links
 from geonode.geoserver.helpers import cascading_delete, gs_catalog
 from urlparse import urljoin, urlsplit
 from actstream.signals import action
+from actstream.models import Action
 
 from .forms import AnonDownloaderForm
 from geonode.eula.models import AnonDownloader
+
+# from datetime import date, timedelta, datetime
+from django.utils import timezone
+
 
 CONTEXT_LOG_FILE = None
 
@@ -217,6 +224,7 @@ def layer_upload(request, template='upload/layer_upload.html'):
 
 
 def layer_detail(request, layername, template='layers/layer_detail.html'):
+    #tile shapefile ng settings.tile
     layer = _resolve_layer(
         request,
         layername,
@@ -277,6 +285,8 @@ def layer_detail(request, layername, template='layers/layer_detail.html'):
         "is_layer": True,
         "wps_enabled": settings.OGC_SERVER['default']['WPS_ENABLED'],
     }
+    context_dict["phillidar2keyword"] = "PhilLiDAR2"
+
 
     context_dict["viewer"] = json.dumps(
         map_obj.viewer_json(request.user, * (NON_WMS_BASE_LAYERS + [maplayer])))
@@ -318,6 +328,7 @@ def layer_detail(request, layername, template='layers/layer_detail.html'):
         else:
             status_code = 400
         #Handle form
+        pprint(status_code)
         return HttpResponse(status=status_code)
     else:
         #Render form
@@ -593,8 +604,40 @@ def layer_download(request, layername):
         'base.view_resourcebase',
         _PERMISSION_MSG_VIEW)
     if request.user.is_authenticated():
-        action.send(request.user, verb='downloaded', target=layer)
+        action.send(request.user, verb='downloaded', action_object=layer)
 
     splits = request.get_full_path().split("/")
     redir_url = urljoin(settings.OGC_SERVER['default']['PUBLIC_LOCATION'], "/".join(splits[4:]))
     return HttpResponseRedirect(redir_url)
+
+@login_required
+def layer_download_csv(request):
+    if not request.user.is_superuser:
+        return HttpResponseRedirect("/forbidden/")
+
+    response = HttpResponse(content_type='text/csv')
+    datetoday = timezone.now()
+    response['Content-Disposition'] = 'attachment; filename="layerdownloads-"'+str(datetoday.month)+str(datetoday.day)+str(datetoday.year)+'.csv"'
+    writer = csv.writer(response)
+
+    auth_list = Action.objects.filter(verb='downloaded').order_by('timestamp') #get layers in prod
+
+    # auth_fmc =
+    anon_list = AnonDownloader.objects.all().order_by('date')
+    # anon_fmc
+    writer.writerow( ['username','layer name','date downloaded'])
+
+    for auth in auth_list:
+        # auth.actor + " " + auth.action_object + " " +  auth.timestamp.strftime('%Y/%m/%d')
+        writer.writerow([auth.actor,auth.action_object.title,auth.timestamp.strftime('%Y/%m/%d')])
+
+    writer.writerow(['\n'])
+    writer.writerow(['Anonymous Downloads'])
+    writer.writerow( ['lastname','firstname','layer name','date downloaded'])
+    for anon in anon_list:
+        lastname = anon.anon_last_name
+        firstname = anon.anon_first_name
+        layername = anon.anon_layer
+        writer.writerow([lastname,firstname,layername,anon.date.strftime('%Y/%m/%d')])
+
+    return response
