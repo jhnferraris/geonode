@@ -629,7 +629,10 @@ def layer_download_csv(request):
 
     for auth in auth_list:
         # auth.actor + " " + auth.action_object + " " +  auth.timestamp.strftime('%Y/%m/%d')
-        writer.writerow([auth.actor,auth.action_object.title,auth.timestamp.strftime('%Y/%m/%d')])
+        if 'title' in dir(auth.action_object):
+            writer.writerow([auth.actor,auth.action_object.title,auth.timestamp.strftime('%Y/%m/%d')])
+        else:
+            writer.writerow([auth.actor,auth.action_object,auth.timestamp.strftime('%Y/%m/%d')])
 
     writer.writerow(['\n'])
     writer.writerow(['Anonymous Downloads'])
