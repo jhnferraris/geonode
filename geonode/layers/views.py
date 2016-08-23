@@ -641,7 +641,11 @@ def layer_download_csv(request):
         orgtype = orgtypelist[getprofile.organization_type]
         #pprint(dir(getprofile))
         # if auth.action_object.csw_type != 'document':
-        listtowrite.append([username,lastname,firstname,email,organization,orgtype,"",auth.action_object.typename,auth.timestamp.strftime('%Y/%m/%d')])
+        #     listtowrite.append([username,lastname,firstname,email,organization,orgtype,"",auth.action_object.typename,auth.timestamp.strftime('%Y/%m/%d')])
+        try:
+            listtowrite.append([username,lastname,firstname,email,organization,orgtype,"",auth.action_object.typename,auth.timestamp.strftime('%Y/%m/%d')])
+        except:
+            listtowrite.append([username,lastname,firstname,email,organization,orgtype,"","",auth.timestamp.strftime('%Y/%m/%d')])
 
     # writer.writerow(['\n'])
     anon_list = AnonDownloader.objects.all().order_by('date')
