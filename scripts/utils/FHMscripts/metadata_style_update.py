@@ -1,3 +1,5 @@
+from geonode.settings import GEONODE_APPS
+import geonode.settings as settings
 from geonode.geoserver.helpers import ogc_server_settings
 from pprint import pprint
 from celery.task import task
