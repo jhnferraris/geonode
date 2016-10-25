@@ -53,61 +53,115 @@ def fh_perms_update(layer):
         Err_msg = st + " Error in updating style of " + layer.name + "\n"
         pass
 
-def style_update(layer,style_template):
-    cat = Catalog(settings.OGC_SERVER['default']['LOCATION'] + 'rest',
-                    username=settings.OGC_SERVER['default']['USER'],
-                    password=settings.OGC_SERVER['default']['PASSWORD'])
+# def style_update(layer,style_template):
+#     cat = Catalog(settings.OGC_SERVER['default']['LOCATION'] + 'rest',
+#                     username=settings.OGC_SERVER['default']['USER'],
+#                     password=settings.OGC_SERVER['default']['PASSWORD'])
 
-    #layer_list = Layer.objects.filter(name__icontains='fh')#initial run of script includes all  layers for cleaning of styles in GN + GS
-    #layer_list = Layer.objects.filter(name__icontains='fh').exclude(styles__name__icontains='fhm'
+#     #layer_list = Layer.objects.filter(name__icontains='fh')#initial run of script includes all  layers for cleaning of styles in GN + GS
+#     #layer_list = Layer.objects.filter(name__icontains='fh').exclude(styles__name__icontains='fhm'
+#     #total_layers = len(layer_list)
+#     try:
+#         layer_attrib = layer.attributes[0].attribute.encode("utf-8")
+#     except Exception as e:
+#             print "No layer attribute %s" % e
+#     ctr = 0
+#     #for layer in layer_list:
+#         #print "[FH STYLE] {0}/{1} : {2} ".format(ctr,total_layers,layer.name)
+#         #delete thumbnail first because of permissions
+
+#     if 'fh' in layer.name:
+#         style = None
+#         if layer_attrib == "Var":
+#             style = cat.get_style(style_template)
+#         else:
+#             style = cat.get_style("fhm_merge")
+#     else:
+#         style = cat.get_style(style_template)
+
+#     if style is not None:
+#         try:
+#             print "Layer thumbnail url: %s " % layer.thumbnail_url
+#             if "lipad" not in settings.BASEURL:
+#                 url = "geonode/uploaded/thumbs/layer-"+ layer.uuid + "-thumb.png"
+#                 os.remove(url)
+#             else:
+#                 url = "/var/www/geonode/uploaded/thumbs/layer-" +layer.uuid + "-thumb.png"
+#                 os.chown(url,'www-data','www-data')
+#                 os.remove(url)
+
+#             gs_layer = cat.get_layer(layer.name)
+#             print "GS LAYER: %s " % gs_layer.name
+#             gs_layer._set_default_style(style)
+#             cat.save(gs_layer)
+#             ctr+=1
+#             gs_style = cat.get_style(layer.name)
+#             print "GS STYLE: %s " % gs_style.name
+#             print "Geoserver: Will delete style %s " % gs_style.name
+#             cat.delete(gs_style)
+#             gn_style = Style.objects.get(name=layer.name)
+#             print "Geonode: Will delete style %s " % gn_style.name
+#             gn_style.delete()
+
+#             layer.sld_body = style.sld_body
+#             layer.save()
+#         except Exception as e:
+#             print "%s" % e
+
+def style_update(layer, style_template):
+    cat = Catalog(settings.OGC_SERVER['default']['LOCATION'] + 'rest',
+                  username=settings.OGC_SERVER['default']['USER'],
+                  password=settings.OGC_SERVER['default']['PASSWORD'])
+
+    # layer_list = Layer.objects.filter(name__icontains='fh')#initial run of script includes all  layers for cleaning of styles in GN + GS
+    # layer_list = Layer.objects.filter(name__icontains='fh').exclude(styles__name__icontains='fhm'
     #total_layers = len(layer_list)
     try:
         layer_attrib = layer.attributes[0].attribute.encode("utf-8")
     except Exception as e:
-            print "No layer attribute %s" % e
+        print "No layer attribute %s" % e
     ctr = 0
-    #for layer in layer_list:
-        #print "[FH STYLE] {0}/{1} : {2} ".format(ctr,total_layers,layer.name)
-        #delete thumbnail first because of permissions
 
-    if 'fh' in layer.name:
-        style = None
+    if '_fh' in layer.name:
         if layer_attrib == "Var":
-            style = cat.get_style(style_template)
+            gs_style = cat.get_style(style_template)
         else:
-            style = cat.get_style("fhm_merge")
+            gs_style = cat.get_style("fhm_merge")
     else:
-        style = cat.get_style(style_template)
+        gs_style = cat.get_style(style_template)
 
-    if style is not None:
+    if gs_style is not None:
         try:
-            print "Layer thumbnail url: %s " % layer.thumbnail_url
-            if "lipad" not in settings.BASEURL:
-                url = "geonode/uploaded/thumbs/layer-"+ layer.uuid + "-thumb.png"
-                os.remove(url)
-            else:
-                url = "/var/www/geonode/uploaded/thumbs/layer-" +layer.uuid + "-thumb.png"
-                os.chown(url,'www-data','www-data')
-                os.remove(url)
-
+            gn_style = Style.objects.get(name=style_template)
+            #update in geoserver
             gs_layer = cat.get_layer(layer.name)
             print "GS LAYER: %s " % gs_layer.name
-            gs_layer._set_default_style(style)
+            gs_layer._set_default_style(gs_style)
+            gs_layer._set_alternate_styles([gs_style])
             cat.save(gs_layer)
-            ctr+=1
-            gs_style = cat.get_style(layer.name)
-            print "GS STYLE: %s " % gs_style.name
-            print "Geoserver: Will delete style %s " % gs_style.name
-            cat.delete(gs_style)
-            gn_style = Style.objects.get(name=layer.name)
-            print "Geonode: Will delete style %s " % gn_style.name
-            gn_style.delete()
-
-            layer.sld_body = style.sld_body
+            #update in geonode
+            layer.default_style = gn_style
             layer.save()
+             #delete in geonode
+            gn_orig_style = Style.objects.get(name=layer.name)
+            lstyles = layer.styles
+            try:
+                lstyles.remove(gn_orig_style)
+            except:
+                traceback.print_exc()
+            try:
+                gn_orig_style.delete()
+            except:
+                traceback.print_exc()
+            #delete in geoserver
+            gs_orig_style = cat.get_style(layer.name)
+            if gs_orig_style is not None:
+                cat.delete(gs_orig_style)
+            gn_style.sld_title = gn_style.name.upper()
+            gn_style.save()
         except Exception as e:
-            print "%s" % e
-            
+            #print "%s" % e
+            raise
 
 @task(name='geonode.tasks.update.seed_layers', queue='update')
 def seed_layers(keyword):
@@ -145,7 +199,7 @@ def fhm_year_metadata(flood_year, skip_prev):
         try:
             print "Layer: %s" % layer.name
             style_update(layer,'fhm')
-            fh_perms_update(layer)
+            # fh_perms_update(layer)
             #fh_perms_update(layer,f)
 
             #batch_seed(layer)
