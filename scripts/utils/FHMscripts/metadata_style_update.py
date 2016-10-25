@@ -198,7 +198,8 @@ def fhm_metadata_update(skip_prev=True, flood_years=(5, 25, 100)):
 
 
 fhm_metadata_update()
-print 'FINISHED METADATA UPDATE
+print 'FINISHED METADATA UPDATE'
+print 'SEEDING LAYERS ... '
 seed_layers()
 
 # flood_year = 5
