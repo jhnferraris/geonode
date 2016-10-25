@@ -22,6 +22,8 @@ from string import Template
 from pwd import getpwnam
 import traceback
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "geonode.settings")
+
 def seed_layers():
     # layers = Layer.objects.filter(Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
     layer_list = Layer.objects.filter(Q(name__icontains='general_luna_quezon')&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
@@ -196,6 +198,7 @@ def fhm_metadata_update(skip_prev=True, flood_years=(5, 25, 100)):
 
 
 fhm_metadata_update()
+print 'FINISHED METADATA UPDATE
 seed_layers()
 
 # flood_year = 5
