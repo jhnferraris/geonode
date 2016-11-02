@@ -1,34 +1,39 @@
 from geonode.settings import GEONODE_APPS
-import geonode.settings as settings
-from geonode.geoserver.helpers import ogc_server_settings
-from pprint import pprint
+
 from celery.task import task
-from geonode.geoserver.helpers import gs_slurp
-from geonode.documents.models import Document
-from geonode.layers.models import Layer
-from geonode.base.models import TopicCategory
-from django.db.models import Q
-from geoserver.catalog import Catalog
-from geonode.layers.models import Style
-from geonode.geoserver.helpers import http_client
-from geonode.layers.utils import create_thumbnail
-from django.core.exceptions import ObjectDoesNotExist
 from celery.utils.log import get_task_logger
+from django.contrib.auth.models import Group
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
+from geonode.base.models import TopicCategory
+from geonode.documents.models import Document
+from geonode.geoserver.helpers import gs_slurp
+from geonode.geoserver.helpers import http_client
+from geonode.geoserver.helpers import ogc_server_settings
+from geonode.layers.models import Layer
+from geonode.layers.models import Style
+from geonode.layers.utils import create_thumbnail
+from geonode.security.models import PermissionLevelMixin
+from geoserver.catalog import Catalog
+from guardian.shortcuts import assign_perm, get_anonymous_user
+from pprint import pprint
+from pwd import getpwnam
+from string import Template
 import geonode.settings as settings
 import os, subprocess, time, datetime
-logger = get_task_logger("geonode.tasks.update")
-from geonode.security.models import PermissionLevelMixin
-from django.contrib.auth.models import Group
-from guardian.shortcuts import assign_perm, get_anonymous_user
-from string import Template
-from pwd import getpwnam
+import sys
 import traceback
+logger = get_task_logger("geonode.tasks.update")
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "geonode.settings")
 
 def seed_layers():
-    # layers = Layer.objects.filter(Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
-    layer_list = Layer.objects.filter(Q(name__icontains='general_luna_quezon')&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+    
+    layer_list = Layer.objects.filter(Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+    
+    # Test: general_luna_quezon only
+    #layer_list = Layer.objects.filter(Q(name__icontains='general_luna_quezon')&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+    
     for layer in layer_list:
         try:
             out = subprocess.check_output([settings.PROJECT_ROOT + '/gwc.sh', 'seed',
@@ -38,7 +43,7 @@ def seed_layers():
                                            settings.OGC_SERVER['default'][
                                                'PASSWORD'], '-u',
                                            settings.OGC_SERVER['default']['LOCATION'] + 'gwc/rest'],
-                                          stderr=subprocess.STDOUT)
+                                         stderr=subprocess.STDOUT)
             print out
         except subprocess.CalledProcessError as e:
             print 'Error seeding layer:', layer
@@ -120,17 +125,19 @@ def style_update(layer,style_template):
             cat.save(gs_layer)
             ctr+=1
             gs_style = cat.get_style(layer.name)
-            print "GS STYLE: %s " % gs_style.name
-            print "Geoserver: Will delete style %s " % gs_style.name
-            cat.delete(gs_style)
-            gn_style = Style.objects.get(name=layer.name)
-            print "Geonode: Will delete style %s " % gn_style.name
-            gn_style.delete()
+            if gs_style:
+                print "GS STYLE: %s " % gs_style.name
+                print "Geoserver: Will delete style %s " % gs_style.name
+                cat.delete(gs_style)
+                gn_style = Style.objects.get(name=layer.name)
+                print "Geonode: Will delete style %s " % gn_style.name
+                gn_style.delete()
 
             layer.sld_body = style.sld_body
             layer.save()
         except Exception as e:
-            print "%s" % e
+            # print "%s" % e
+            traceback.print_exc()
 
 def fhm_metadata_update(skip_prev=True, flood_years=(5, 25, 100)):
     for year in flood_years:
@@ -140,8 +147,12 @@ def fhm_year_metadata(flood_year, skip_prev):
     flood_year_probability = int(100/flood_year)
     layer_list = []
     # filter layers based on hardcoded upload date
-    # layers = Layer.objects.filter(Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
-    layer_list = Layer.objects.filter(Q(name__icontains='general_luna_quezon')&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+    
+    layer_list = Layer.objects.filter(Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+    
+    # Test: general_luna_quezon only
+    #layer_list = Layer.objects.filter(Q(name__icontains='general_luna_quezon')&Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
+
     total_layers = len(layer_list)
     print("Updating metadata of [{0}] Flood Hazard Maps for Flood Year [{1}]".format(total_layers, flood_year))
     ctr = 0
@@ -149,9 +160,12 @@ def fhm_year_metadata(flood_year, skip_prev):
     
     for layer in layer_list:
         try:
-            print "Layer: %s" % layer.name
+            print '#' * 20, "Layer: %s" % layer.name, '#' * 20
+            sys.stdout.flush()
             style_update(layer,'fhm')
+            sys.stdout.flush()
             fh_perms_update(layer)
+            sys.stdout.flush()
             #fh_perms_update(layer,f)
 
             #batch_seed(layer)
@@ -166,8 +180,10 @@ def fhm_year_metadata(flood_year, skip_prev):
                 map_resolution = '30'
             
             print "Layer: %s" % layer.name
+            print "fh%syr" % flood_year
+            print "%s Year Flood Hazard Map" % flood_year
             layer.title = layer.name.replace("_10m","").replace("_30m","").replace("__"," ").replace("_"," ").replace("fh%syr" % flood_year,"%s Year Flood Hazard Map" % flood_year).title()
-            
+            print 'layer.title: %s' % layer.title
             layer.abstract = """This shapefile, with a resolution of {0} meters, illustrates the inundation extents in the area if the actual amount of rain exceeds that of a {1} year-rain return period.
 
     Note: There is a 1/{2} ({3}%) probability of a flood with {4} year return period occurring in a single year.
@@ -191,8 +207,12 @@ def fhm_year_metadata(flood_year, skip_prev):
             ctr+=1
             print "[{0} YEAR FH METADATA] {1}/{2} : {3}".format(flood_year,ctr,total_layers,layer.name)
         except Exception as e:
-            print "%s" % e
+            # print "%s" % e
+            traceback.print_exc()
             pass
+
+        sys.stdout.flush()
+        # break
 
 def fhm_metadata_update(skip_prev=True, flood_years=(5, 25, 100)):
     for year in flood_years:
@@ -202,7 +222,9 @@ def fhm_metadata_update(skip_prev=True, flood_years=(5, 25, 100)):
 fhm_metadata_update()
 print 'FINISHED METADATA UPDATE'
 print 'SEEDING LAYERS ... '
+sys.stdout.flush()
 seed_layers()
+sys.stdout.flush()
 
 # flood_year = 5
 # layers5 = Layer.objects.filter(Q(name__icontains='fh{0}yr'.format(flood_year))&Q(upload_session__date__month=10)&Q(upload_session__date__day=25)&Q(upload_session__date__year=2016))
