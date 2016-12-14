@@ -26,6 +26,7 @@ import traceback
 import csv
 import datetime
 from pprint import pprint
+from unidecode import unidecode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -630,39 +631,50 @@ def layer_download_csv(request):
     'Other']
 
     auth_list = Action.objects.filter(verb='downloaded').order_by('timestamp')
-    writer.writerow( ['username','lastname','firstname','email','organization','organization type','purpose','layer name','date downloaded'])
+    writer.writerow(['username', 'lastname', 'firstname', 'email', 'organization',
+                     'organization type', 'purpose', 'layer name', 'date downloaded','area','size_in_bytes'])
+
+    pprint("writing authenticated downloads list")
     for auth in auth_list:
         username = auth.actor
         getprofile = Profile.objects.get(username=username)
-        firstname = getprofile.first_name
-        lastname = getprofile.last_name
+        firstname = unidecode(getprofile.first_name)
+        lastname = unidecode(getprofile.last_name)
         email = getprofile.email
         organization = getprofile.organization
         orgtype = orgtypelist[getprofile.organization_type]
-        #pprint(dir(getprofile))
-        # if auth.action_object.csw_type != 'document':
-        #     listtowrite.append([username,lastname,firstname,email,organization,orgtype,"",auth.action_object.typename,auth.timestamp.strftime('%Y/%m/%d')])
-        try:
-            listtowrite.append([username,lastname,firstname,email,organization,orgtype,"",auth.action_object.typename,auth.timestamp.strftime('%Y/%m/%d')])
-        except:
-            listtowrite.append([username,lastname,firstname,email,organization,orgtype,"","",auth.timestamp.strftime('%Y/%m/%d')])
+        #area = get_area_coverage(auth.action_object.typename)
+        area = 0
+        # pprint(dir(getprofile))
+        if auth.action_object.csw_type != 'document':
+            listtowrite.append([username, lastname, firstname, email, organization, orgtype,
+                                "", auth.action_object.typename, auth.timestamp.strftime('%Y/%m/%d'),area,''])
 
     # writer.writerow(['\n'])
     anon_list = AnonDownloader.objects.all().order_by('date')
     # writer.writerow(['Anonymous Downloads'])
     # writer.writerow( ['lastname','firstname','email','organization','organization type','purpose','layer name','doc name','date downloaded'])
+
+    pprint("writing anonymous downloads list")
     for anon in anon_list:
-        lastname = anon.anon_last_name
-        firstname = anon.anon_first_name
+        lastname = unidecode(anon.anon_last_name)
+        firstname = unidecode(anon.anon_first_name)
         email = anon.anon_email
         layername = anon.anon_layer
         docname = anon.anon_document
         organization = anon.anon_organization
         orgtype = anon.anon_orgtype
         purpose = anon.anon_purpose
+        #area = get_area_coverage(auth.action_object.typename)
+        area = 0
         if layername:
-            listtowrite.append(["",lastname,firstname,email,organization,orgtype,purpose,layername.typename,anon.date.strftime('%Y/%m/%d')])
-    listtowrite.sort(key=lambda x: datetime.datetime.strptime(x[8], '%Y/%m/%d'), reverse=True)
+            listtowrite.append(["", lastname, firstname, email, organization, orgtype,
+                                purpose, layername.typename, anon.date.strftime('%Y/%m/%d'),area,''])
+
+    listtowrite.sort(key=lambda x: datetime.datetime.strptime(
+        x[8], '%Y/%m/%d'), reverse=True)
+
     for eachtowrite in listtowrite:
         writer.writerow(eachtowrite)
+
     return response
